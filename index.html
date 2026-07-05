@@ -5,9 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Аналітика SMK</title>
     
-    <!-- Підключення Telegram WebApp -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- Бібліотека для парсингу CSV -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     
     <style>
@@ -16,73 +14,61 @@
             background-color: var(--tg-theme-bg-color, #ffffff);
             color: var(--tg-theme-text-color, #000000);
             margin: 0;
-            padding: 15px;
-        }
-        h2 { text-align: center; font-size: 1.2rem; margin-bottom: 20px; }
-        .table-container {
-            width: 100%;
-            overflow-x: auto;
-            border: 1px solid var(--tg-theme-hint-color, #ccc);
-            border-radius: 8px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-        }
-        th {
-            background-color: var(--tg-theme-button-color, #2481cc);
-            color: var(--tg-theme-button-text-color, #ffffff);
             padding: 10px;
-            white-space: nowrap;
         }
-        td {
-            padding: 8px;
-            border-bottom: 1px solid var(--tg-theme-hint-color, #eee);
-        }
-        tr:nth-child(even) { background-color: rgba(0,0,0,0.03); }
+        h2 { text-align: center; font-size: 1.2rem; margin: 10px 0; color: var(--tg-theme-button-color, #2481cc); }
+        h3 { font-size: 1.1rem; margin: 15px 0 5px; }
+        .table-container { width: 100%; overflow-x: auto; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th { background-color: #f4f4f4; color: #333; padding: 8px; border: 1px solid #ddd; white-space: nowrap; }
+        td { padding: 6px; border: 1px solid #ddd; text-align: center; }
+        .branch-cell { font-weight: bold; background: #fafafa; }
     </style>
 </head>
 <body>
 
-    <h2>📊 Виконання плану</h2>
+    <h2>📊 Зведений звіт</h2>
     <div id="status">Завантаження даних...</div>
     
-    <div class="table-container">
-        <table id="dataTable">
-            <thead id="tableHead"></thead>
-            <tbody id="tableBody"></tbody>
-        </table>
-    </div>
+    <div id="reportContainer"></div>
 
     <script>
-        // Ініціалізація Telegram Mini App
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
 
-        // Посилання на ваш CSV
         const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTfgEdnKgcbxSifn9wWmzb4ZoAxq8p0W4prmwFxsjWVV5TjMpR-Fqz6dv-2Ygb_ZcL_sXQ8a_Wkqdys/pub?gid=341643981&single=true&output=csv";
 
         Papa.parse(csvUrl, {
             download: true,
-            header: true,
+            header: false,
             skipEmptyLines: true,
             complete: function(results) {
                 const data = results.data;
                 document.getElementById('status').style.display = 'none';
 
-                const head = document.getElementById('tableHead');
-                const body = document.getElementById('tableBody');
+                function renderSection(title, startRow, endRow, colOffset) {
+                    let html = `<h3>${title}</h3><table><tr><th>Філія</th><th>Пок.</th><th>План</th><th>Факт</th><th>%</th></tr>`;
+                    let lastBranch = "";
+                    for (let i = startRow; i <= endRow; i++) {
+                        if (!data[i]) continue;
+                        let branch = data[i][colOffset] || lastBranch;
+                        lastBranch = branch;
+                        html += `<tr>
+                            <td class="branch-cell">${branch}</td>
+                            <td>${data[i][colOffset + 1] || ''}</td>
+                            <td>${data[i][colOffset + 2] || ''}</td>
+                            <td>${data[i][colOffset + 3] || ''}</td>
+                            <td>${data[i][colOffset + 4] || ''}</td>
+                        </tr>`;
+                    }
+                    return html + `</table>`;
+                }
 
-                // Створюємо заголовки
-                const headers = Object.keys(data[0]);
-                head.innerHTML = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
-
-                // Створюємо рядки
-                body.innerHTML = data.map(row => 
-                    `<tr>${headers.map(h => `<td>${row[h]}</td>`).join('')}</tr>`
-                ).join('');
+                const container = document.getElementById('reportContainer');
+                container.innerHTML = 
+                    renderSection("ГМП", 3, 24, 0) + 
+                    renderSection("ІК", 3, 24, 7);
             },
             error: function() {
                 document.getElementById('status').innerText = "Помилка завантаження даних.";
